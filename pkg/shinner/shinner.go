@@ -22,7 +22,6 @@ type Shinner struct {
 	token  string
 	uA     string
 	aC     string
-	userID string
 	apiKey string
 }
 

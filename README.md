@@ -3,6 +3,14 @@
 Shinner Bot is a Go application designed to traverse the Earth and collect
 virtual "Shins" from different locations using the Shinner API.
 
+## Disclaimer ⚠️
+
+This bot was created purely for fun and to experiment with latitude and
+longitude data. I have no intention of causing any harm or penalties to the
+Shinner project, which I find to be an amazing application that I use daily.
+Please consider this bot as a personal project and not as an attempt to exploit
+or undermine the Shinner platform.
+
 ## Features
 
 - Traverse the globe and collect Shins within a defined radius.
@@ -23,8 +31,9 @@ virtual "Shins" from different locations using the Shinner API.
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/shinner-bot.git
+git clone git@github.com:edouard-claude/shinner-bot.git
 cd shinner-bot
+go build -o bin/shinner-bot cmd/bot/main.go
 ```
 
 ### Usage
@@ -33,7 +42,7 @@ Run the Shinner Bot by providing your Shinner API key, email, and password as
 flags:
 
 ```bash
-./shinner-bot -api shinner_api_key -email your_email -password your_password
+./bin/shinner-bot -api shinner_api_key -email your_email -password your_password
 ```
 
 ### How It Works
