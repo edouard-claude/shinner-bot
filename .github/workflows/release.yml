@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20  # Spécifie la version de Go que tu utilises
+
+      - name: Build binary
+        run: |
+          mkdir -p bin/
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o bin/shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/bot
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            bin/shinner-bot-linux-amd64
+            bin/shinner-bot-linux-arm64
+            bin/shinner-bot-darwin-amd64
+            bin/shinner-bot-darwin-arm64
+            bin/shinner-bot-windows-amd64.exe
+            bin/shinner-bot-windows-arm64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
