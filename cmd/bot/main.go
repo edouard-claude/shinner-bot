@@ -2,117 +2,105 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"math"
 	"math/rand"
+	"net/http"
 	"shinner/pkg/shinner"
-	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
+	"github.com/gorilla/websocket"
 )
 
 type App struct {
-	shinner *shinner.Shinner
-	userID  string
+	shinner  *shinner.Shinner
+	userID   string
+	userName string
+	path     []historyPath
+	conn     *websocket.Conn
 }
 
-const (
-	radius      = 2500.0 // rayon de chaque sphère en kilomètres
-	earthRadius = 6371.0 // rayon de la Terre en kilomètres
-)
-
-func randInt(min, max int) int {
+// Generic function to generate random numbers for both int and float64 types
+func randValue[T int | float64](min, max T) T {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return min + r.Intn(max-min)
-}
-
-func randFloat(min, max float64) float64 {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return min + r.Float64()*(max-min)
-}
-
-func clamp(value, min, max float64) float64 {
-	if value < min {
-		return min
+	switch v := any(min).(type) {
+	case int:
+		return T(v + r.Intn(int(any(max).(int)-v)))
+	case float64:
+		return T(v + r.Float64()*(any(max).(float64)-v))
 	}
-	if value > max {
-		return max
-	}
-	return value
+	return min
 }
 
-func (a *App) TraverseEarthToCollectShins(ctx context.Context) error {
-	radius := randFloat(1000, radius)
-	// Calculer les étapes en latitude et longitude
-	stepLat := 2 * radius / earthRadius * 180 / math.Pi
-	stepLon := 2 * radius / earthRadius * 180 / math.Pi / math.Cos(0) // approximatif pour l'équateur
+type historyPath struct {
+	Lat    float64 `json:"lat"`
+	Lon    float64 `json:"lon"`
+	Radius float64 `json:"radius"`
+	Shins  []shins `json:"shins"`
+}
 
-	for lat := -90.0; lat <= 90.0; lat += stepLat {
-		for lon := -180.0; lon <= 180.0; lon += stepLon {
-			// Simuler un mouvement de "pinch" aléatoire
-			pinchZoom := randFloat(0.8, 1.2)   // léger zoom ou dézoom
-			radius *= pinchZoom                // ajuster le radius
-			radius = clamp(radius, 1000, 3000) // Limiter le radius dans une plage raisonnable
-			log.Println("🤏 pinching with zoom factor:", pinchZoom, "📍 new radius:", radius)
+type shins struct {
+	Lat    float64 `json:"lat"`
+	Lon    float64 `json:"lon"`
+	Amount int     `json:"amount"`
+	Owner  bool    `json:"owner"`
+}
 
-			// Recalculer les étapes en fonction du nouveau radius
-			stepLat = 2 * radius / earthRadius * 180 / math.Pi
-			stepLon = 2 * radius / earthRadius * 180 / math.Pi / math.Cos(0)
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 
-			// Introduire une légère pause aléatoire pour simuler la lecture ou l'interaction humaine
-			sleepDuration := time.Duration(randInt(1, 5)) * time.Second
-			log.Println("🌍 lat:", lat, "lon:", lon, "😴 sleep:", sleepDuration)
-			time.Sleep(sleepDuration)
+func TraverseGlobe(callback func(lat, lon, radius float64)) {
+	log.Println("🌍 Starting to traverse the globe")
+	radius := randValue(200.0, 800.0)                   // In kilometers
+	earthCircumference := 40075.0                       // Circumference of the Earth in kilometers
+	latitudeStep := radius / earthCircumference * 360.0 // Convert the distance to degrees of latitude
+	longitudeStep := 2 * latitudeStep                   // Increase longitude step to space out the circles
 
-			// Introduire un décalage aléatoire dans le mouvement pour éviter les trajectoires parfaitement régulières
-			latOffset := randFloat(-stepLat/10, stepLat/10)
-			lonOffset := randFloat(-stepLon/10, stepLon/10)
+	for lon := -180.0; lon <= 180.0; lon += longitudeStep {
+		log.Println("🌍 Moving to longitude:", lon)
 
-			// Appliquer les décalages tout en respectant les limites de latitude et longitude
-			lat = clamp(lat+latOffset, -90.0, 90.0)
-			lon = clamp(lon+lonOffset, -180.0, 180.0)
-
-			resp, err := a.shinner.GetNearbyShins(ctx, lat, lon, radius)
-			if err != nil {
-				if strings.Contains(err.Error(), "Too many shins") {
-					log.Println("🚫 too many shins error skipped")
-					continue
-				} else {
-					return fmt.Errorf("❌ failed to get nearby shins at lat: %f, lon: %f, err: %v", lat, lon, err)
-				}
+		if int(lon/longitudeStep)%2 == 0 {
+			// Moving down from the North Pole to the South Pole
+			for lat := 90.0; lat >= -90.0; lat -= latitudeStep {
+				// Appliquer un décalage à gauche en fonction de la latitude
+				longitudeCorrection := lon - (latitudeStep / math.Cos(lat*math.Pi/180.0))
+				callback(lat, longitudeCorrection, radius)
 			}
-
-			if len(resp.GetNearbyShins.Shins) > 0 {
-				for _, shin := range resp.GetNearbyShins.Shins {
-					// Vérifier si le Shin n'a pas été collecté
-					if shin.FoundBy.Username == "" {
-						// Collecter le Shin
-						if err := a.shinner.CollectShin(ctx, shinner.CollectShinInput{
-							ID:     shin.ID,
-							UserID: a.userID,
-							Amount: shin.Amount,
-						}); err != nil {
-							return fmt.Errorf("❌ failed to collect shin with ID %s: %v", shin.ID, err)
-						}
-
-						log.Printf("💰 successfully collected Shin at https://maps.google.com/?q=%f,%f with amount: %d\n", shin.Latitude, shin.Longitude, shin.Amount)
-					} else {
-						log.Printf("💪 shin already collected by %s at https://maps.google.com/?q=%f,%f \n", shin.FoundBy.Username, shin.Latitude, shin.Longitude)
-					}
-					log.Println("😴 sleeping for a while before the next Shin")
-					time.Sleep(time.Duration(randInt(1, 5)) * time.Second)
-				}
-			} else {
-				log.Println("📍 no Shin found at this location")
+		} else {
+			// Moving up from the South Pole to the North Pole
+			for lat := -90.0; lat <= 90.0; lat += latitudeStep {
+				// Appliquer un décalage à gauche en fonction de la latitude
+				longitudeCorrection := lon - (latitudeStep / math.Cos(lat*math.Pi/180.0))
+				callback(lat, longitudeCorrection, radius)
 			}
 		}
 	}
-	return nil
+
+	log.Println("🌍 Finished traversing the globe")
+}
+
+func (a *App) setHistory(h historyPath) {
+	a.path = append(a.path, h)
+
+	if a.conn != nil {
+		a.conn.WriteJSON(h)
+	}
 }
 
 func New(apiKey string) *App {
 	return &App{
+		path:    []historyPath{},
 		shinner: shinner.New(apiKey),
 	}
 }
@@ -148,8 +136,6 @@ func init() {
 func main() {
 	app := New(flagApiKey)
 
-	ctx := context.Background()
-
 	dataLogin, err := app.shinner.Login(flagEmail, flagPassword)
 	if err != nil {
 		log.Fatalf("failed to login: %v", err)
@@ -168,8 +154,193 @@ func main() {
 	log.Println("🔄 token refreshed successfully")
 
 	app.userID = dataRefresh.UserID
+	ctx := context.Background()
 
-	if err := app.TraverseEarthToCollectShins(ctx); err != nil {
-		log.Printf("Error while traversing the Earth: %v\n", err)
+	user, err := app.shinner.GetUser(ctx, app.userID)
+	if err != nil {
+		log.Fatalf("failed to get user: %v", err)
+	}
+
+	log.Println("👤 user info:", dataRefresh)
+
+	app.userName = user.GetUser.Username
+
+	go func() {
+		TraverseGlobe(func(lat, lon, radius float64) {
+			h := historyPath{
+				Lat:    lat,
+				Lon:    lon,
+				Radius: radius,
+			}
+
+			resp, err := app.shinner.GetNearbyShins(ctx, lat, lon, h.Radius)
+			if err != nil {
+				log.Println("Failed to get nearby shins:", err)
+				return
+			}
+
+			for _, shin := range resp.GetNearbyShins.Shins {
+				shinRecord := shins{
+					Lat:    shin.Latitude,
+					Lon:    shin.Longitude,
+					Amount: shin.Amount,
+				}
+
+				if shin.FoundBy.Username == "" {
+					// Collect the Shin
+					if err := app.shinner.CollectShin(ctx, shinner.CollectShinInput{
+						ID:     shin.ID,
+						UserID: app.userID,
+						Amount: shin.Amount,
+					}); err != nil {
+						log.Printf("❌ failed to collect shin with ID %s: %v\n", shin.ID, err)
+					}
+					sleepTime := randValue(1, 3)
+					time.Sleep(time.Duration(sleepTime) * time.Second)
+					log.Printf("💰 successfully collected Shin at http://localhost:8080/map with amount: %d\n", shin.Amount)
+					shinRecord.Owner = true
+				} else {
+					log.Printf("💪 shin already collected by %s at http://localhost:8080/map \n", shin.FoundBy.Username)
+					if shin.FoundBy.Username == app.userName {
+						shinRecord.Owner = true
+					} else {
+						shinRecord.Owner = false
+					}
+				}
+
+				h.Shins = append(h.Shins, shinRecord)
+			}
+			sleepTime := randValue(0, 2)
+			time.Sleep(time.Duration(sleepTime) * time.Second)
+
+			app.setHistory(h)
+		})
+	}()
+
+	http.HandleFunc("/map", app.renderMapHandler)
+	http.HandleFunc("/ws", app.wsHandler)
+
+	app.displayInfoTable()
+
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
 	}
 }
+
+func (a *App) displayInfoTable() {
+	s := lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render
+
+	t := table.New()
+	t.Headers("Name", "URL")
+	t.Row("Live Map", s("http://localhost:8080/map "))
+	t.Row("Email", flagEmail)
+	t.Row("UserName", a.userName)
+	t.Row("Authored by", "https://github.com/edouard-claude/shinner-bot ")
+	fmt.Println(t.Render())
+}
+
+func (a *App) wsHandler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Failed to upgrade to WebSocket:", err)
+		return
+	}
+	defer conn.Close()
+
+	a.conn = conn
+
+	if err := a.conn.WriteJSON(a.path); err != nil {
+		log.Println("Failed to send path data:", err)
+		return
+	}
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("WebSocket connection closed:", err)
+			break
+		}
+	}
+}
+
+// renderMapHandler renders the HTML page with the map and path data
+func (a *App) renderMapHandler(w http.ResponseWriter, r *http.Request) {
+	// Convert the paths to a JSON string for embedding in the HTML
+	pathsJSON, err := json.Marshal(a.path)
+	if err != nil {
+		http.Error(w, "Failed to encode paths to JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// Render the HTML template
+	tmpl := template.New("map")
+	tmpl, err = tmpl.Parse(MapTemplate)
+	if err != nil {
+		http.Error(w, "Failed to parse template", http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Paths template.JS
+	}{
+		Paths: template.JS(pathsJSON),
+	}
+
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, "Failed to execute template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// MapTemplate is the HTML template for rendering the map
+var MapTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🗺️ Shinner Bot Live</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+		html, body { margin: 0; padding: 0; }
+        #map { height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([0, 0], 2); // Center map on the equator, zoom level 2
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // WebSocket for real-time updates
+        var ws = new WebSocket("ws://" + window.location.host + "/ws");
+
+        ws.onmessage = function(event) {
+            var path = JSON.parse(event.data);
+
+            // Add circle to the map
+            L.circle([path.lat, path.lon], {
+                color: 'blue',
+                fillOpacity: 0.02,				
+                radius: path.radius * 1000 // Convert radius to meters				
+            }).bindTooltip("Radius: " + path.radius + " km").addTo(map);
+
+			// add shins to the map
+			path?.shins?.forEach(function(shin) {
+				L.circle([shin.lat, shin.lon], {
+					color: shin.owner ? 'green' : 'red',
+					fillColor: shin.owner ? 'green' : 'red',
+					fillOpacity: 0.5,
+					radius: 600
+				}).addTo(map);
+			});
+        };
+    </script>
+</body>
+</html>
+`

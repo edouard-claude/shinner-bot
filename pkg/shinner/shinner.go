@@ -368,49 +368,47 @@ func (s *Shinner) CollectShin(ctx context.Context, input CollectShinInput) error
 }
 
 type GetUser struct {
-	Data struct {
-		GetUser struct {
+	GetUser struct {
+		Typename string `json:"__typename"`
+		Avatar   struct {
 			Typename string `json:"__typename"`
-			Avatar   struct {
-				Typename string `json:"__typename"`
-				Original string `json:"original"`
-				Sm       any    `json:"sm"`
-			} `json:"avatar"`
-			Crews       []any  `json:"crews"`
-			DateOfBirth string `json:"dateOfBirth"`
-			Email       string `json:"email"`
-			Events      []any  `json:"events"`
-			ID          string `json:"id"`
-			Ilike       any    `json:"ilike"`
-			Instagram   string `json:"instagram"`
-			Name        string `json:"name"`
-			Scene       struct {
-				Typename   string `json:"__typename"`
-				City       string `json:"city"`
-				Coordinate struct {
-					Typename  string  `json:"__typename"`
-					Latitude  float64 `json:"latitude"`
-					Longitude float64 `json:"longitude"`
-				} `json:"coordinate"`
-				Country   string `json:"country"`
-				Formatted string `json:"formatted"`
-				Region    string `json:"region"`
-				Slug      string `json:"slug"`
-			} `json:"scene"`
-			Shins          int    `json:"shins"`
-			Sponsors       string `json:"sponsors"`
-			Stance         string `json:"stance"`
-			StartedSkating string `json:"startedSkating"`
-			Tiktok         any    `json:"tiktok"`
-			Topics         []struct {
-				Typename string `json:"__typename"`
-				Title    string `json:"title"`
-				Topic    string `json:"topic"`
-			} `json:"topics"`
-			Username string `json:"username"`
-			Youtube  any    `json:"youtube"`
-		} `json:"getUser"`
-	} `json:"data"`
+			Original string `json:"original"`
+			Sm       any    `json:"sm"`
+		} `json:"avatar"`
+		Crews       []any  `json:"crews"`
+		DateOfBirth string `json:"dateOfBirth"`
+		Email       string `json:"email"`
+		Events      []any  `json:"events"`
+		ID          string `json:"id"`
+		Ilike       any    `json:"ilike"`
+		Instagram   string `json:"instagram"`
+		Name        string `json:"name"`
+		Scene       struct {
+			Typename   string `json:"__typename"`
+			City       string `json:"city"`
+			Coordinate struct {
+				Typename  string  `json:"__typename"`
+				Latitude  float64 `json:"latitude"`
+				Longitude float64 `json:"longitude"`
+			} `json:"coordinate"`
+			Country   string `json:"country"`
+			Formatted string `json:"formatted"`
+			Region    string `json:"region"`
+			Slug      string `json:"slug"`
+		} `json:"scene"`
+		Shins          int    `json:"shins"`
+		Sponsors       string `json:"sponsors"`
+		Stance         string `json:"stance"`
+		StartedSkating string `json:"startedSkating"`
+		Tiktok         any    `json:"tiktok"`
+		Topics         []struct {
+			Typename string `json:"__typename"`
+			Title    string `json:"title"`
+			Topic    string `json:"topic"`
+		} `json:"topics"`
+		Username string `json:"username"`
+		Youtube  any    `json:"youtube"`
+	} `json:"getUser"`
 }
 
 func (s *Shinner) GetUser(ctx context.Context, id string) (*GetUser, error) {
