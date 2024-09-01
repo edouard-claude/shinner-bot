@@ -14,12 +14,12 @@ jobs:
         goarch: [amd64, arm64]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20  # Spécifie la version de Go que tu utilises
+          go-version: 1.23.0
 
       - name: Build binary
         run: |
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
 
