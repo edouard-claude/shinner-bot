@@ -47,6 +47,6 @@ jobs:
       - name: Create Release
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          version: '~> v1'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
