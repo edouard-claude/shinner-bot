@@ -33,22 +33,20 @@ jobs:
           path: bin/shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
 
   release:
-    needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
+    needs: build
     steps:
-      - name: Download binary
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all binaries
         uses: actions/download-artifact@v4
         with:
-          name: shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: goreleaser/goreleaser-action@v6
         with:
-          files: |
-            bin/shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}*
+          version: latest
         env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

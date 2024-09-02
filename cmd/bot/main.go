@@ -212,7 +212,6 @@ func main() {
 			}
 			sleepTime := randValue(0, 2)
 			time.Sleep(time.Duration(sleepTime) * time.Second)
-
 			app.setHistory(h)
 		})
 	}()
