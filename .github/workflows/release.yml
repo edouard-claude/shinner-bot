@@ -1,25 +1,32 @@
 name: release
 
 on:
-    push:
-      tags:
-        - 'v*.*.*' # Indicates that it is triggered when a new Release is created
+  pull_request:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  goreleaser:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@v1
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }} # A default variable that allows adding files to Release
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          goversion: 1.23
-          binary_name: "shinner-bot"
-          extra_files: README.md
-          project_path: "./cmd/bot"
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.0
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+          workdir: ./cmd/bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
