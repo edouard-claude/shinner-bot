@@ -1,61 +1,25 @@
-name: Release
+name: release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-
-permissions:
-  contents: write
+    push:
+      tags:
+        - 'v*.*.*' # Indicates that it is triggered when a new Release is created
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
+        goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: wangyoucao577/go-release-action@v1
         with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23.0
-
-      - name: Build binary
-        run: |
-          mkdir -p bin/
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o bin/shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/bot
-
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: bin/shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: shinner-bot-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: bin/
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: '~> v2'
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }} # A default variable that allows adding files to Release
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          goversion: 1.23
+          binary_name: "shinner-bot"
+          extra_files: README.md
+          project_path: cmd/bot/main.go

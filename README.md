@@ -14,11 +14,9 @@ or undermine the Shinner platform.
 ## Features
 
 - Traverse the globe and collect Shins within a defined radius.
-- Randomize the search radius with slight zoom in/out effects to simulate a more
-  natural search pattern.
-- Automatically handles "too many shins" errors.
+- Randomize the search radius to simulate a more natural search pattern.
 - Logs collected Shins with their geographical coordinates.
-- Refreshes API tokens as needed to maintain a valid session.
+- Visualizes the collected Shins on live maps http://localhost:8080
 
 ## Installation
 
@@ -51,6 +49,7 @@ flags:
   using the provided email and password.
 - **Token Refresh**: Once logged in, the bot refreshes the token to ensure
   session validity.
+- **Get User Info**: The bot retrieves the user's information to set username
 - **Traverse the Earth**: The bot begins traversing the Earth, searching for
   Shins within a randomized radius. The radius is dynamically adjusted during
   the traversal to simulate natural human behavior.
