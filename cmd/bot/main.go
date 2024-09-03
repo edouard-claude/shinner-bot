@@ -161,8 +161,6 @@ func main() {
 		log.Fatalf("failed to get user: %v", err)
 	}
 
-	log.Println("👤 user info:", dataRefresh)
-
 	app.userName = user.GetUser.Username
 
 	go func() {
