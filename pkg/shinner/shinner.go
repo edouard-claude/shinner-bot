@@ -13,7 +13,7 @@ import (
 
 const (
 	apiShinnerUrl = "https://shinner-backend-production-amd4bgjgpq-ez.a.run.app/api/graphql"
-	userAent      = "shinner/1050 CFNetwork/1496.0.7 Darwin/23.5.0"
+	userAent      = "shinner/1055 CFNetwork/1568.100.1 Darwin/24.0.0"
 	apolloClient  = "shinner-app-prod-ios"
 )
 
